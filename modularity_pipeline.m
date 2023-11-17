@@ -31,12 +31,12 @@ function [] = modularity_pipeline(inpf, sub)
     W = significant_correlations(X, 0.01);
 
     %plot sig corr over all time
+    fig = figure('visible','off');
     imagesc(W)
     axis square; colorbar
     xlabel('node')
     ylabel('node')
     title('Significant Correlation')
-    fig = figure('visible','off');
     saveas(fig, append(sub, 'sig_corr_alltpts.png'))
     W(isnan(W)) =0;
     close(fig)
@@ -59,9 +59,9 @@ function [] = modularity_pipeline(inpf, sub)
 
     %see stability of NMI
     [~, nmi] = partition_distance(Mg);
+    fig = figure('visible','off');
     imagesc(nmi==1)
     axis square
-    fig = figure('visible','off');
     saveas(fig, append(sub,'NMI.png'))
     close(fig)
 
@@ -84,10 +84,9 @@ function [] = modularity_pipeline(inpf, sub)
     P = P / l;
     
     M = mean(P);
-    
+    fig = figure('visible','off');
     imagesc(P)
     axis square
-    fig = figure('visible','off');
     saveas(fig, append(sub,'dynamic_consensus_modularity.png'))
     close(fig)
     disp("DONE!")
