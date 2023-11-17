@@ -36,10 +36,11 @@ function [] = modularity_pipeline(inpf, sub)
     xlabel('node')
     ylabel('node')
     title('Significant Correlation')
-    fig = gcf;
-    exportgraphics(fig, append(sub,'sig_corr_alltpts.png'),'Resolution',300)
+    fig = figure('visible','off');
+    saveas(fig, append(sub, 'sig_corr_alltpts.png'))
     W(isnan(W)) =0;
     close(fig)
+
     disp("Mulstiscale modularity")
     %Multiscale modularity
     gamma = 0.5:0.05:2.5;
@@ -48,26 +49,26 @@ function [] = modularity_pipeline(inpf, sub)
         Mg(:, h) = consensus_community_louvain_with_finetuning(W, gamma(h));
     end
 
+    fig = figure('visible','off');
     plot(max(Mg))
     xlabel("gamma values")
     ylabel("Modules")
     title("Resolution vs Module Num")
-    fig = gcf;
-    exportgraphics(fig, append(sub,'multiscale resolution.png'),'Resolution',300)
+    saveas(fig, append(sub,'multiscale resolution.png'))
     close(fig)
 
     %see stability of NMI
     [~, nmi] = partition_distance(Mg);
     imagesc(nmi==1)
     axis square
-    fig = gcf;
-    exportgraphics(fig, append(sub,'NMI.png'))
+    fig = figure('visible','off');
+    saveas(fig, append(sub,'NMI.png'))
     close(fig)
 
     %time for dynamic modularity
     l=3; % dnumber of slices I want in each slice
     XX = mat2cell(X, 100, 52*ones(1, l));
-    
+    disp("Dynamic Modularity")
     Mw = zeros(n, 12);
     for h = 1:3
         W = significant_correlations(XX{h}, 0.01);
@@ -86,9 +87,11 @@ function [] = modularity_pipeline(inpf, sub)
     
     imagesc(P)
     axis square
-    fig = gcf;
-    exportgraphics(fig, append(sub,'dynamic_consensus_modularity.png'), 'Resolution',300)
-
+    fig = figure('visible','off');
+    saveas(fig, append(sub,'dynamic_consensus_modularity.png'))
+    close(fig)
+    disp("DONE!")
+    exit;
 end
 
 
