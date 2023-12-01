@@ -77,7 +77,6 @@ function [] = modularity_pipeline(inpf, sub)
         W(isnan(W)) = 0;
         Mw(:, h) = consensus_community_louvain_with_finetuning(W);
     end
-    
     P = zeros(n);
     for i = 1:l
         P = P + (Mw(:, i)==Mw(:, i)');
@@ -93,20 +92,31 @@ function [] = modularity_pipeline(inpf, sub)
     for i = 1:s
         for h=1:3
             X_slice = XX{h};
+
             X_slice = simann_model(X_slice, 'varnode', true, ...
-                'vartime', true, 'covnodemode', true, ...
-                'partition', Mw(:,i), 'covsystem', true);
+                'vartime', true,  ...
+               'covsystem', true);
             
             % compute null correlations
-            [U_, S_, V_] = svd(X_slice, "econ")
-            U1(:, i) = U_(:, ind);
+            [U_, S_, V_] = svd(X_slice, "econ");
+            tmp = U_(:, 1);
+            U1(:, ind) = tmp;
             ind = ind +1;
         end
     end
+    C_win = zeros(n,n, 3);
+    P_win = zeros(n,n, 3);
+    for h = 1:3
+        X_slice = XX{h};
+        [C_win(:,:,h),P_win(:,:,h)] = corr(X_slice');
+    end
+
+    C = mean(C_win, 3);
+    P0 = mean(P_win, 3);
     U1 = mean(U1, 3);
-    fig = figure('visible','off');
-    visualize_pvalues(C, P, U1);
-    saveas(fig,appen(sub,'_p_values_shuffled.png'))
+
+    visualize_pvalues(C, P0, U1,sub);
+    disp("DONE w p portion!")
 
     M = mean(P);
     fig = figure('visible','off');
@@ -230,5 +240,59 @@ while 1
 end
 M = M(:, 1);
 Q = Q(1);
+
+end
+
+
+function visualize_pvalues(C, P0, P1, sub)
+% function to visualize p values
+
+fig = figure("Visible",'off');
+tiledlayout(3, 1)
+
+% visualize relationship with correlation
+nexttile
+plot(C(:), P0(:), '.'), hold on
+if exist('P1', 'var')
+    plot(C(:), P1(:), '.')
+end
+legend( ...
+    'MATLAB p values', 'permutation p values', ...
+    'location', 'bestoutside');
+legend('boxoff')
+xlabel('correlation')
+ylabel('p value')
+axis square
+grid on
+
+% visualize histograms
+nexttile
+histogram(P0, 0:0.05:1), hold on
+if exist('P1', 'var')
+    histogram(P1, 0:0.05:1),
+end
+legend( ...
+    'MATLAB p values', 'permutation p values', ...
+    'location', 'bestoutside');
+legend('boxoff')
+xlabel('p value')
+axis square
+grid on
+
+% visualize relationship with each other
+if exist('P1', 'var')
+    nexttile,
+    P0 = max(1e-10, P0);
+    P1 = max(1e-10, P1);
+    loglog(P0, P1, '.'); hold on
+    loglog([1e-10 1], [1e-10 1], 'k')
+    xlabel('MATLAB p values')
+    ylabel('permutation p values')
+    axis([1e-10 1 1e-10 1])
+    axis square;
+    grid on
+end
+saveas(fig,append(sub,'_p_values_shuffled.png'))
+close(fig);
 
 end
