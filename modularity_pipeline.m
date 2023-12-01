@@ -3,6 +3,7 @@ function [] = modularity_pipeline(inpf, sub)
     addpath("/mnt/ernie_ghassan/datasets/action_modularity/derivatives/fmriprep/")
     addpath(genpath("/home/ghassan/MATLAB-Drive/Analysis of Brain Networks/BCT"))
     addpath("/home/ghassan/MATLAB-Drive/Analysis of Brain Networks/bme8901_data/")
+    addpath(genpath("/home/ghassan/MATLAB-Drive/Analysis of Brain Networks/simann"))
     disp(char(sub))
     disp(append("Running on sub: ", sub, " ID"))
     disp("Loading Parcels!")
@@ -18,17 +19,17 @@ function [] = modularity_pipeline(inpf, sub)
     nvox = nx*ny*nz;
     Vol_data = reshape(Vol_data, nx*ny*nz, t);
 
-    X = zeros(num_parcels,t); 
+    X_slice = zeros(num_parcels,t); 
     %get avg time series per parcel
     for i=1:num_parcels
         inds = parcels == i;
-        X(i,:) = mean(Vol_data(inds(1:nvox),:),1, 'omitnan');
+        X_slice(i,:) = mean(Vol_data(inds(1:nvox),:),1, 'omitnan');
     end
     %construct adjacency from parcels
     disp("Getting sig correlations")
-    X = normalize(X, 2);
-    [n, t] = size(X);
-    W = significant_correlations(X, 0.01);
+    X_slice = normalize(X_slice, 2);
+    [n, t] = size(X_slice);
+    W = significant_correlations(X_slice, 0.01);
 
     %plot sig corr over all time
     fig = figure('visible','off');
@@ -67,7 +68,7 @@ function [] = modularity_pipeline(inpf, sub)
 
     %time for dynamic modularity
     l=3; % dnumber of slices I want in each slice
-    XX = mat2cell(X, 100, 52*ones(1, l));
+    XX = mat2cell(X_slice, 100, 52*ones(1, l));
     disp("Dynamic Modularity")
     Mw = zeros(n, 12);
     for h = 1:3
@@ -82,7 +83,31 @@ function [] = modularity_pipeline(inpf, sub)
         P = P + (Mw(:, i)==Mw(:, i)');
     end
     P = P / l;
-    
+    % shuffling along modules to generate null dist of connections
+    % for comparison with dynamic modularity
+    % shuffle 20 times
+    s = 20;
+    % p value matrix
+    U1 = zeros(n, n, s*h);
+    ind=1;
+    for i = 1:s
+        for h=1:3
+            X_slice = XX{h};
+            X_slice = simann_model(X_slice, 'varnode', true, ...
+                'vartime', true, 'covnodemode', true, ...
+                'partition', Mw(:,i), 'covsystem', true);
+            
+            % compute null correlations
+            [U_, S_, V_] = svd(X_slice, "econ")
+            U1(:, i) = U_(:, ind);
+            ind = ind +1;
+        end
+    end
+    U1 = mean(U1, 3);
+    fig = figure('visible','off');
+    visualize_pvalues(C, P, U1);
+    saveas(fig,appen(sub,'_p_values_shuffled.png'))
+
     M = mean(P);
     fig = figure('visible','off');
     imagesc(P)
