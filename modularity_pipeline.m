@@ -92,10 +92,15 @@ function [] = modularity_pipeline(inpf, sub)
     for i = 1:s
         for h=1:3
             X_slice = XX{h};
+            M =  Mw(:, h) 
+
+            %assert(isequal(max(M), numel(unique(M))))
+
+            [~, ~, M] = unique(M)
 
             X_slice = simann_model(X_slice, 'varnode', true, ...
                 'vartime', true,  ...
-               'covsystem', true);
+                'partition', M, 'covsystem', true);
             
             % compute null correlations
             [U_, S_, V_] = svd(X_slice, "econ");
