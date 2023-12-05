@@ -71,12 +71,15 @@ function [] = modularity_pipeline(inpf, sub)
     XX = mat2cell(X_slice, 100, 52*ones(1, l));
     disp("Dynamic Modularity")
     Mw = zeros(n, 12);
+    Q=zeros(3,1);
     for h = 1:3
         W = significant_correlations(XX{h}, 0.01);
         W(W < 0) = 0;
         W(isnan(W)) = 0;
-        Mw(:, h) = consensus_community_louvain_with_finetuning(W);
+        [Mw(:, h),Q(h)] = consensus_community_louvain_with_finetuning(W);
     end
+    Q = mean(Q, 'all');
+    
     P = zeros(n);
     for i = 1:l
         P = P + (Mw(:, i)==Mw(:, i)');
@@ -85,23 +88,27 @@ function [] = modularity_pipeline(inpf, sub)
     % shuffling along modules to generate null dist of connections
     % for comparison with dynamic modularity
     % shuffle 20 times
-    s = 20;
+    s = 100;
     % p value matrix
     U1 = zeros(n, n, s*h);
     ind=1;
+    Q_null = zeros(s*h,1);
+    disp("NULL SHUFFLING")
     for i = 1:s
         for h=1:3
             X_slice = XX{h};
-            M =  Mw(:, h) 
+            M =  Mw(:, h);
 
             %assert(isequal(max(M), numel(unique(M))))
 
-            [~, ~, M] = unique(M)
+            [~, ~, M] = unique(M);
 
             X_slice = simann_model(X_slice, 'varnode', true, ...
                 'vartime', true,  ...
                 'partition', M, 'covsystem', true);
-            
+            W_null = corr(X_slice');
+            W_null(isnan(W_null))= 0;
+            [~, Q_null(ind)]  = consensus_community_louvain_with_finetuning(W_null);
             % compute null correlations
             [U_, S_, V_] = svd(X_slice, "econ");
             tmp = U_(:, 1);
@@ -109,6 +116,8 @@ function [] = modularity_pipeline(inpf, sub)
             ind = ind +1;
         end
     end
+    Qsig = 1- sum(Q>Q_null)/numel(Q_null) % finding proportion that Q is greater than the null distribution.
+    %significant connections per window
     C_win = zeros(n,n, 3);
     P_win = zeros(n,n, 3);
     for h = 1:3
@@ -122,6 +131,21 @@ function [] = modularity_pipeline(inpf, sub)
 
     visualize_pvalues(C, P0, U1,sub);
     disp("DONE w p portion!")
+
+    disp("Q values")
+    fig = figure('visible', 'off');
+    disp("Empiric Q value:")
+    disp(Q)
+    histogram(Q_null)
+    hold on
+    plot([Q,Q], [0, 50]);
+    formatSpec = 'Q values during movie watching: p= %d.';
+    str = sprintf(formatSpec,Qsig)
+
+    title(str)
+    axis square
+    saveas(fig, append(sub, "dynamic_qvalues_vs_null.png"))
+    close(fig)
 
     M = mean(P);
     fig = figure('visible','off');
