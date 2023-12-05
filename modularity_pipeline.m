@@ -66,8 +66,8 @@ function [] = modularity_pipeline(inpf, sub)
     saveas(fig, append(sub,'NMI.png'))
     close(fig)
 
-    %time for dynamic modularity
-    l=3; % dnumber of slices I want in each slice
+    % time for dynamic modularity
+    l=3; % number of slices I want per timepoint
     XX = mat2cell(X_slice, 100, 52*ones(1, l));
     disp("Dynamic Modularity")
     Mw = zeros(n, 12);
@@ -76,6 +76,7 @@ function [] = modularity_pipeline(inpf, sub)
         W = significant_correlations(XX{h}, 0.01);
         W(W < 0) = 0;
         W(isnan(W)) = 0;
+        % running community louvain over several time points 
         [Mw(:, h),Q(h)] = consensus_community_louvain_with_finetuning(W);
     end
     Q = mean(Q, 'all');
@@ -87,7 +88,7 @@ function [] = modularity_pipeline(inpf, sub)
     P = P / l;
     % shuffling along modules to generate null dist of connections
     % for comparison with dynamic modularity
-    % shuffle 20 times
+    % shuffle 100 times
     s = 100;
     % p value matrix
     U1 = zeros(n, n, s*h);
@@ -102,12 +103,13 @@ function [] = modularity_pipeline(inpf, sub)
             %assert(isequal(max(M), numel(unique(M))))
 
             [~, ~, M] = unique(M);
-
+            %constraining partition, row/column mean/var and global sig cov
             X_slice = simann_model(X_slice, 'varnode', true, ...
                 'vartime', true,  ...
                 'partition', M, 'covsystem', true);
             W_null = corr(X_slice');
             W_null(isnan(W_null))= 0;
+            %calculating modularity of null shuffles
             [~, Q_null(ind)]  = consensus_community_louvain_with_finetuning(W_null);
             % compute null correlations
             [U_, S_, V_] = svd(X_slice, "econ");
@@ -128,10 +130,13 @@ function [] = modularity_pipeline(inpf, sub)
     C = mean(C_win, 3);
     P0 = mean(P_win, 3);
     U1 = mean(U1, 3);
+    %visualizing sections
+    %visualize significant connection in network 
 
     visualize_pvalues(C, P0, U1,sub);
     disp("DONE w p portion!")
 
+    %visualize empiric modularity metric vs null modularity
     disp("Q values")
     fig = figure('visible', 'off');
     disp("Empiric Q value:")
@@ -146,7 +151,7 @@ function [] = modularity_pipeline(inpf, sub)
     axis square
     saveas(fig, append(sub, "dynamic_qvalues_vs_null.png"))
     close(fig)
-
+    %visualzie modularity across slices
     M = mean(P);
     fig = figure('visible','off');
     imagesc(P)
